@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>On the fly</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+</head>
+<body>
+    <script src="jquery.min.js"></script>	
+    <script src="aws-sdk-2.487.0.min.js"></script>
+    <script src="aws-cognito-sdk.min.js"></script>
+    <script src="amazon-cognito-identity.min.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/sigV4Client.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/apiGatewayClient.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/simpleHttpClient.js"></script>
+    <script type="text/javascript" src="lib/apiGatewayCore/utils.js"></script>
+    <script type="text/javascript" src="lib/axios/dist/axios.standalone.js"></script>
+    <script type="text/javascript" src="lib/url-template/url-template.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/components/enc-base64.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/components/hmac.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/rollups/hmac-sha256.js"></script>
+    <script type="text/javascript" src="lib/CryptoJS/rollups/sha256.js"></script>
+    <script type="text/javascript" src="apigClient.js"></script>
+    <style>
+    .loader {
+        border: 16px solid #f3f3f3; /* Light grey */
+        border-top: 16px solid #3498db; /* Blue */
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .card {
+        /* box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2); */
+        max-width: 480px;
+        margin: auto;
+        text-align: justify;
+    }
+
+    .title {
+        color: grey;
+        font-size: 18px;
+    }
+    .center-screen {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        min-height: 90vh;
+    }
+    .nav-link{
+        cursor: pointer;
+    }
+    .centCard{
+        align-items: center;
+        text-align: center;
+    }
+    #likeButDiv{
+        margin-bottom: 10px;
+    }
+
+    </style>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">
+            <img src="https://thumbs.dreamstime.com/b/otf-letter-logo-design-white-background-creative-initials-circle-concept-256766494.jpg" width="30" height="30" class="d-inline-block align-top" alt="logo1">
+            On the fly!</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+              <!-- <a class="nav-link" onclick="home()">Home <span class="sr-only">(current)</span></a> -->
+            </li>
+            <li>
+                <a id="catSports" class="nav-link" onclick="sportsFeed()" style="display:none">Sports</a>
+            </li>
+            <li>
+                <a id="catTech" class="nav-link" onclick="techFeed()" style="display:none">Technology</a>
+            </li>
+            <li>
+                <a id="catBusiness" class="nav-link" onclick="businessFeed()" style="display:none">Business</a>
+            </li>
+            <li>
+                <a id="catEnt" class="nav-link" onclick="entFeed()" style="display:none">Entertainment</a>
+            </li>
+            <li>
+                <a id="catSci" class="nav-link" onclick="scienceFeed()" style="display:none">Science</a>
+            </li>
+            <li>
+                <a id="catMix" class="nav-link" onclick="mixFeed()" style="display:none">Mixed</a>
+            </li>
+            <li>
+                <a id="catRecc" class="nav-link" onclick="recommended()" style="display:none">Recommended</a>
+            </li>
+          </ul>
+          <form class="form-inline my-2 my-lg-0">
+            <a id="logOutButton" class="nav-link" onclick="logOut()" style="display:none; color: white">Log Out</a>
+            <img src="https://i.pinimg.com/736x/5f/05/e2/5f05e2c3f895154acaba29fa36d7f544.jpg" alt="logo" width="100" height="80">
+          </form>
+        </div>
+      </nav>
+    <!-- <h1 style="text-align:center">On the fly!</h1> -->
+    <div class="center-screen" id="hintDiv" style="display:none">
+        <h2>Pick a category from above to get started!</h2>
+    </div>
+    <div class="center-screen" id="logregDiv">
+    <input id="emailInput" type="text" placeholder="Email" style="display:none"/></br>
+    <input id="userNameInput" type="text" placeholder="Username"/><br>
+    <input id="passwordInput" type="password" placeholder="Password"/></br>
+    <input id="confirmPasswordInput" type="password" placeholder="Confirm Password" style="display:none"/></br>
+    <input id="verificationCodeInput" type="text" placeholder="Verification Code" style="display:none"/></br>
+    <!-- <input id="bucketNameInput" type="text" placeholder="S3 Bucket Name" style="display:none"/></br> -->
+    <button id="logInButton" type="button" class="btn btn-primary" onclick="logIn()">Log In</button><br>
+    <button id="navRegister" class="btn btn-primary" onclick="switchToRegisterView()" type="button" class="btn btn-primary">Register</button>
+    <!-- <input id="logInButton" type="Button" value="Log In" onclick="logIn()"> -->
+    <button id="backToLogIn" type="button" class="btn btn-primary" onclick="switchToLogInView()" style="display:none">Back to Login</button><br>
+    <!-- <input id="navRegister" type="button" value="Register" onclick="switchToRegisterView()"> -->
+    <button id="registerButton" type="button" class="btn btn-primary" onclick="register()" style="display:none">Register</button>
+    <button id="verifyCodeButton" type="button" class="btn btn-primary" onclick="verifyCode()" style="display:none">Verify</button>
+    </div>
+    <!-- <input id="sumNext" type="button" value="next" onclick="nextFeed()" style="display:none"> -->
+    <br>
+    <h1 style="text-align: center; display:none" id="catHead"></h1><br>
+    <div id="cardSummary" class="card" style="display:none"> 
+        <div class="card-body">
+        <h4 class="card-title" id="titleSummary"></h4>
+        <div class="centCard">
+        <div style="display:none" id="likeButDiv">
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="likeArticle()" id="likeButton">Like</button>
+        </div>
+        <p class="card-subtitle mb-2 text-muted" id="catSummary"></p>
+        <a class="card-link" id="catURL" href="https://" target="_blank"></a>
+        </div>
+        <p class="card-text" id="fullSummary"></p>
+        </div>
+    </div>
+    <br><button type="button" class="btn btn-outline-primary" style="float: right; margin-right: 5%; display:none" id="sumNext" onclick="nextFeed()">Next</button>
+    <br>
+    <!-- <input id="logOutButton" type="Button" value="Log Out" onclick="logOut()" style="display:none"> -->
+    
+
+    <!-- <input id="listS3ObjectsButton" type="button" value="List S3 Objects" onclick="listS3Objects()" style="display:none"></br></br> -->
+    <!-- <input id="clearLogsButton" type="button" value="Clear Logs" onclick="clearLogs()"> -->
+    </br></br>
+    <div id="loader" class="loader" style="display:none"></div>
+    </br></br>
+    <!-- <div id="log" style="width: 500px; height: 300px; overflow-y: scroll;"></div> -->
+    
+
+    <script type="text/javascript">
+
+        //=============== AWS IDs ===============
+        var userPoolId = 'us-east-1_JhHRH57Oe';
+        var clientId = '7gh1i3oi543soslv88hfpjf8tc';
+        var region = 'us-east-1';
+        var identityPoolId = 'us-east-1:09f10821-f086-44f4-be96-7a4da14785ea';
+        //=============== AWS IDs ===============
+
+        var cognitoUser;
+        var idToken;
+        var userPool;
+        var sessUser;
+        var currFeed;
+        var currUrl;
+        
+        var poolData = { 
+            UserPoolId : userPoolId,
+            ClientId : clientId
+        };
+        
+        getCurrentLoggedInSession();
+
+        function switchToVerificationCodeView(){
+            $("#emailInput").hide();
+            $("#userNameInput").hide();
+            $("#passwordInput").hide();
+            $("#confirmPasswordInput").hide();
+            $("#logInButton").hide();
+            $("#backToLogIn").hide();
+            $("#registerButton").hide();
+            $('#navRegister').hide();
+            $('#cardSummary').hide();
+            $("#bucketNameInput").hide();
+            $("#verificationCodeInput").show();
+            $("#verifyCodeButton").show();
+            $('#catHead').hide();
+            $("#listS3ObjectsButton").hide();
+            $("#logOutButton").hide();
+            $("#hintDiv").hide();
+        }
+
+        function switchToRegisterView(){
+            $("#emailInput").show();
+            $("#userNameInput").show();
+            $("#passwordInput").show();
+            $("#confirmPasswordInput").show();
+            $("#backToLogIn").show();
+            $("#logInButton").hide();
+            $("#registerButton").show();
+            $('#cardSummary').hide();
+            $('#navRegister').hide();
+            $("#verificationCodeInput").hide();
+            $("#verifyCodeButton").hide();
+            $("#listS3ObjectsButton").hide();
+            $("#bucketNameInput").hide();
+            $('#catHead').hide();
+            $("#logOutButton").hide();
+            $("#hintDiv").hide();
+        }
+
+        function switchToLogInView(){
+            $("#userNameInput").val('');
+            $("#passwordInput").val('');
+            $("#emailInput").hide();
+            $("#userNameInput").show();
+            $("#passwordInput").show();
+            $("#confirmPasswordInput").hide();
+            $('#cardSummary').hide();
+            $("#backToLogIn").hide();
+            $("#logInButton").show();
+            $("#registerButton").hide();
+            $('#navRegister').show();
+            $("#verificationCodeInput").hide();
+            $("#verifyCodeButton").hide();
+            $("#listS3ObjectsButton").hide();
+            $("#bucketNameInput").hide();
+            $('#catHead').hide();
+            $("#logOutButton").hide();
+            $("#hintDiv").hide();
+        }
+
+        function switchToLoggedInView(){
+            $("#emailInput").hide();
+            $("#userNameInput").hide();
+            $("#passwordInput").hide();
+            $("#confirmPasswordInput").hide();
+            $("#logInButton").hide();
+            $("#backToLogIn").hide();
+            $('#navRegister').hide();
+            $("#registerButton").hide();
+            $("#verificationCodeInput").hide();
+            $("#verifyCodeButton").hide();
+            $('#cardSummary').hide();
+            $("#logregDiv").hide();
+            $("#catSports").show();
+            $("#catBusiness").show();
+            $("#catTech").show();
+            $("#catEnt").show();
+            $("#catSci").show();
+            $("#catMix").show();
+            $("#catRecc").show();
+            $('#catHead').hide();
+            $("#logOutButton").show();
+            $("#showHomeNav").show();
+            $("#hintDiv").show();
+        }
+
+        function showSummaries(){
+            $('#titleSummary').text("")
+            $('#catSummary').text("")
+            $('#fullSummary').text("")
+            $('#catURL').text("")
+            $("#likeButton").hide()
+            $("#emailInput").hide();
+            $("#userNameInput").hide();
+            $("#passwordInput").hide();
+            $("#showHomeNav").show();
+            $("#confirmPasswordInput").hide();
+            $("#logInButton").hide();
+            $("#backToLogIn").hide();
+            $('#navRegister').hide();
+            $("#registerButton").hide();
+            $("#verificationCodeInput").hide();
+            $("#logregDiv").hide();
+            $("#verifyCodeButton").hide();
+            $("#hintDiv").hide();
+            // $("#catSports").hide();
+            // $("#catBusiness").hide();
+            // $("#catTech").hide();
+            // $("#catEnt").hide();
+            // $("#catSci").hide();
+            // $("#catMix").hide();
+            // $("#catRecc").hide();
+            $('#catHead').show();
+            $('#sumNext').show();
+            $("#logOutButton").show();
+            // $("#cardSummary").show();
+        }
+
+        function logOutView(){
+            $("#userNameInput").val('');
+            $("#passwordInput").val('');
+            $("#emailInput").hide();
+            $('#catHead').hide();
+            $("#userNameInput").show();
+            $("#passwordInput").show();
+            $("#confirmPasswordInput").hide();
+            $("#backToLogIn").hide();
+            $("#logInButton").show();
+            $("#registerButton").hide();
+            $("#logregDiv").show();
+            $('#navRegister').show();
+            $("#verificationCodeInput").hide();
+            $("#verifyCodeButton").hide();
+            $("#listS3ObjectsButton").hide();
+            $("#bucketNameInput").hide();
+            $("#catSports").hide();
+            $("#catBusiness").hide();
+            $("#catTech").hide();
+            $("#catEnt").hide();
+            $("#catSci").hide();
+            $("#catMix").hide();
+            $("#catRecc").hide();
+            $('#sumNext').hide();
+            $("#logOutButton").hide();
+            $("#cardSummary").hide();
+            $("#hintDiv").hide();
+        }
+
+        function clearLogs(){
+            $('#log').empty();
+        }
+
+        /*
+        Starting point for user logout flow
+        */
+        function logOut(){
+            if (cognitoUser != null) {
+
+                $("#loader").show();
+                cognitoUser.signOut();
+                logOutView();
+                logMessage('Logged out!');
+                $("#loader").hide();
+            }
+        }
+
+        /*
+        Starting point for user login flow with input validation
+        */
+        function logIn(){
+
+            if(!$('#userNameInput').val() || !$('#passwordInput').val()){
+                logMessage('Please enter Username and Password!');
+            }else{
+                var authenticationData = {
+                    Username : $('#userNameInput').val(),
+                    Password : $("#passwordInput").val(),
+                };
+                var authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails(authenticationData);
+
+                var userData = {
+                    Username : $('#userNameInput').val(),
+                    Pool : userPool
+                };
+                cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+
+                $("#loader").show();
+                cognitoUser.authenticateUser(authenticationDetails, {
+                    onSuccess: function (result) {
+                        // logMessage('Logged in!');
+                        sessUser=userData.Username;
+                        switchToLoggedInView();
+
+                        idToken = result.getIdToken().getJwtToken();
+                        getCognitoIdentityCredentials();
+                    },
+
+                    onFailure: function(err) {
+                        logMessage(err.message);
+                        $("#loader").hide();
+                    },
+
+                });
+            }
+        }
+
+        /*
+        Starting point for user registration flow with input validation
+        */
+        function register(){
+            switchToRegisterView();
+
+            if( !$('#emailInput').val() || !$('#userNameInput').val()  || !$('#passwordInput').val() || !$('#confirmPasswordInput').val() ) {
+                    logMessage('Please fill all the fields!');
+            }else{
+                if($('#passwordInput').val() == $('#confirmPasswordInput').val()){
+                    registerUser($('#emailInput').val(), $('#userNameInput').val(), $('#passwordInput').val());
+                }else{
+                    logMessage('Confirm password failed!');
+                }
+                
+            }
+        }
+
+        /*
+        Starting point for user verification using AWS Cognito with input validation
+        */
+        function verifyCode(){
+            if( !$('#verificationCodeInput').val() ) {
+                logMessage('Please enter verification field!');
+            }else{
+                $("#loader").show();
+                cognitoUser.confirmRegistration($('#verificationCodeInput').val(), true, function(err, result) {
+                    if (err) {
+                        logMessage(err.message);
+                    }else{
+                        logMessage('Successfully verified code!');
+                        switchToLogInView();
+                    }
+                    
+                    $("#loader").hide();
+                });
+            }
+        }
+
+        /*
+        User registration using AWS Cognito
+        */
+        function registerUser(email, username, password){
+            var attributeList = [];
+            
+            var dataEmail = {
+                Name : 'email',
+                Value : email
+            };
+
+            var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
+
+            attributeList.push(attributeEmail);
+
+            $("#loader").show();
+            userPool.signUp(username, password, attributeList, null, function(err, result){
+                if (err) {
+                    logMessage(err.message);
+                }else{
+                    cognitoUser = result.user;
+                    sessUser = cognitoUser.getUsername().username
+                    logMessage('Registration Successful! Username is: '+ cognitoUser.getUsername() + 'Please enter the verification code sent to your Email.');
+                    // logMessage('Username is: ' + cognitoUser.getUsername());
+                    // logMessage('Please enter the verification code sent to your Email.');
+                    switchToVerificationCodeView();
+                }
+                $("#loader").hide();
+            });
+        }
+
+        /*
+        Starting point for AWS List S3 Objects flow with input validation
+        */
+        // function listS3Objects(){
+        //     if(!$('#bucketNameInput').val()){
+        //         logMessage('Please enter the name of the S3 Bucket!');
+        //     }else{
+        //         $("#loader").show();
+        //         getAWSS3BucketObjects();
+        //     }
+            
+        // }
+
+        /*
+        This method will get temporary credentials for AWS using the IdentityPoolId and the Id Token recieved from AWS Cognito authentication provider.
+        */
+        function getCognitoIdentityCredentials(){
+            AWS.config.region = region;
+
+            var loginMap = {};
+            loginMap['cognito-idp.' + region + '.amazonaws.com/' + userPoolId] = idToken;
+
+            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+                IdentityPoolId: identityPoolId,
+                Logins: loginMap
+            });
+
+            AWS.config.credentials.clearCachedId();
+
+            AWS.config.credentials.get(function(err) {
+                if (err){
+                    logMessage(err.message);
+                }
+                // else {
+                //     logMessage('AWS Access Key: '+ AWS.config.credentials.accessKeyId);
+                //     logMessage('AWS Secret Key: '+ AWS.config.credentials.secretAccessKey);
+                //     logMessage('AWS Session Token: '+ AWS.config.credentials.sessionToken);
+                // }
+
+                $("#loader").hide();
+            });
+        }
+
+        /*
+        This method will use AWS S3 SDK to get a list of S3 bucket object.
+        Before using this method, AWS Credentials must be set in AWS config.
+        */
+        // function getAWSS3BucketObjects(){            
+        //     var s3 = new AWS.S3();
+
+        //     var params = {
+        //         Bucket: $("#bucketNameInput").val()
+        //     };
+
+        //     s3.listObjects(params, function(err, data) {
+        //         if (err) logMessage(err.message);
+        //         else{
+        //             logMessage('');
+        //             logMessage('====== S3 Bucket Objects ======');
+        //             data.Contents.forEach(element => {
+        //                 logMessage(element.Key);
+        //             });
+        //             logMessage('');
+        //         }
+
+        //         $("#loader").hide();
+        //     });
+        // }
+
+        /*
+        If user has logged in before, get the previous session so user doesn't need to log in again.
+        */
+        function getCurrentLoggedInSession(){
+
+            $("#loader").show();
+            userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+            cognitoUser = userPool.getCurrentUser();
+
+            if(cognitoUser != null){
+                cognitoUser.getSession(function(err, session) {
+                    if (err) {
+                        logMessage(err.message);
+                    }else{
+                        console.log(cognitoUser);
+                        sessUser = cognitoUser.username;
+                        logMessage('Session found! Logged in.');
+                        switchToLoggedInView();
+                        idToken = session.getIdToken().getJwtToken();
+                        getCognitoIdentityCredentials();
+                    }
+                    $("#loader").hide();
+                });
+            }else{
+                logMessage('Session expired. Please log in again.');
+                $("#loader").hide();
+            }
+
+        }
+
+        /*
+        This is a logging method that will be used throught the application
+        */
+        function logMessage(message){
+            alert(message);
+        }
+
+        function sportsFeed(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Sports")
+            var searchTerm = 'sports'
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+            currFeed = "sports"
+            console.log("currFeed 1 "+currFeed)
+            var body = { };
+            var params = {category : searchTerm, username: sessUser};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.categoryGet(params, body).then(function(res){
+                console.log(res)
+                $('#titleSummary').text(res.data.title)
+                $('#catSummary').text('Category: '+res.data.category)
+                $('#fullSummary').text(res.data.content)
+                $('#catURL').text("Full article")
+                document.getElementById("catURL").setAttribute("href", res.data.link);
+                $("#cardSummary").show();
+                $('#likeButDiv').show()
+                $("#likeButton").show()
+                currUrl = res.data.link;
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+        function businessFeed(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Business")
+            var searchTerm = 'business'
+            currFeed = "business"
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+
+            var body = { };
+            var params = {category : searchTerm, username: sessUser};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.categoryGet(params, body).then(function(res){
+                console.log(res)
+                $('#titleSummary').text(res.data.title)
+                $('#catSummary').text('Category: '+res.data.category)
+                $('#fullSummary').text(res.data.content)
+                $('#catURL').text("Full article")
+                document.getElementById("catURL").setAttribute("href", res.data.link);
+                $("#cardSummary").show();
+                $('#likeButDiv').show()
+                $("#likeButton").show()
+                currUrl = res.data.link;
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function techFeed(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Technology")
+            var searchTerm = 'technology'
+            currFeed = "technology"
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+
+            var body = { };
+            var params = {category : searchTerm, username: sessUser};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.categoryGet(params, body).then(function(res){
+                console.log(res)
+                $('#titleSummary').text(res.data.title)
+                $('#catSummary').text('Category: '+res.data.category)
+                $('#fullSummary').text(res.data.content)
+                $('#catURL').text("Full article")
+                $("#cardSummary").show();
+                $('#likeButDiv').show()
+                $("#likeButton").show()
+                document.getElementById("catURL").setAttribute("href", res.data.link);
+                currUrl = res.data.link;
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function entFeed(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Entertainment")
+            var searchTerm = 'entertainment'
+            currFeed = "entertainment"
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+
+            var body = { };
+            var params = {category : searchTerm, username: sessUser};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.categoryGet(params, body).then(function(res){
+                console.log(res)
+                $('#titleSummary').text(res.data.title)
+                $('#catSummary').text('Category: '+res.data.category)
+                $('#fullSummary').text(res.data.content)
+                $('#catURL').text("Full article")
+                $("#cardSummary").show();
+                $('#likeButDiv').show()
+                $("#likeButton").show()
+                document.getElementById("catURL").setAttribute("href", res.data.link);
+                currUrl = res.data.link;
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function scienceFeed(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Science")
+            var searchTerm = 'science'
+            currFeed = "science"
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+
+            var body = { };
+            var params = {category : searchTerm, username: sessUser};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.categoryGet(params, body).then(function(res){
+                console.log(res)
+                $('#titleSummary').text(res.data.title)
+                $('#catSummary').text('Category: '+res.data.category)
+                $('#fullSummary').text(res.data.content)
+                $('#catURL').text("Full article")
+                $("#cardSummary").show();
+                $('#likeButDiv').show()
+                $("#likeButton").show()
+                document.getElementById("catURL").setAttribute("href", res.data.link);
+                currUrl = res.data.link;
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function mixFeed(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Mixed")
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+            currFeed = "mixed"
+            var body = { };
+            var params = {username: sessUser, category:"mixed"};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.mixGet(params, body).then(function(res){
+                console.log(res)
+                $('#titleSummary').text(res.data.title)
+                $('#catSummary').text('Category: '+res.data.category)
+                $('#fullSummary').text(res.data.content)
+                $('#catURL').text("Full article")
+                $("#cardSummary").show();
+                $('#likeButDiv').show()
+                $("#likeButton").show()
+                document.getElementById("catURL").setAttribute("href", res.data.link);
+                currUrl = res.data.link;
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function nextFeed(){
+            showSummaries();
+            $('#likeButton').removeClass('btn-danger')
+            $('#likeButton').addClass('btn-outline-danger')
+            $('#likeButton').text('Like')
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+            var body = { };
+            console.log("currFeed 2 "+currFeed);
+            var x = currFeed
+            var params = {category: x, username: sessUser};
+            console.log(params);
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+            apigClient.nextGet(params, body).then(function(res){
+                console.log(res)
+                if(res.data == "You have reached the end."){
+                    alert(res.data)
+                    switchToLoggedInView()
+                }
+                else{
+                    $('#titleSummary').text(res.data.title)
+                    $('#catSummary').text('Category: '+res.data.category)
+                    $('#fullSummary').text(res.data.content)
+                    $('#catURL').text("Full article")
+                    $("#cardSummary").show();
+                    $('#likeButDiv').show()
+                    $("#likeButton").show()
+                    document.getElementById("catURL").setAttribute("href", res.data.link);
+                    currUrl = res.data.link;
+                }
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function likeArticle(){
+            //<button type="button" class="btn btn-outline-danger btn-sm" onclick="likeArticle()">&hearts;Like</button>
+            $('#likeButton').removeClass('btn-outline-danger')
+            $('#likeButton').addClass('btn-danger')
+            $('#likeButton').text('Liked')
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+            var body = { };
+            var params = {username: sessUser, category: currFeed, link: currUrl};
+
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+            apigClient.likeGet(params, body).then(function(res){
+                console.log(res)
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+
+        function recommended(){
+            if($("#likeButton").hasClass("btn-danger")==true){
+                $('#likeButton').removeClass('btn-danger')
+                $('#likeButton').addClass('btn-outline-danger')
+                $('#likeButton').text('Like')
+            }
+            showSummaries();
+            $('#catHead').text("Recommended")
+            var apigClient = apigClientFactory.newClient({apiKey: " "})
+            currFeed = "recommended"
+            var body = { };
+            var params = {username: sessUser, category:"recommended"};
+            var additionalParams = {
+                headers: {
+                    'Content-Type': "application.json"
+                }
+            }
+
+            apigClient.recommendedGet(params, body).then(function(res){
+                console.log(res)
+                if(res.data == "Like a few more posts for a recommended feed." || res.data == "No posts liked yet to create recommended feed."){
+                    alert(res.data)
+                    switchToLoggedInView()
+                }
+                else{
+                    $('#titleSummary').text(res.data.title)
+                    $('#catSummary').text('Category: '+res.data.category)
+                    $('#fullSummary').text(res.data.content)
+                    $('#catURL').text("Full article")
+                    $("#cardSummary").show();
+                    $('#likeButDiv').show()
+                    $("#likeButton").show()
+                    document.getElementById("catURL").setAttribute("href", res.data.link);
+                    currUrl = res.data.link;
+                }
+            }).catch(function(result){
+                console.log("ERROR")
+                console.log(result);
+            })
+
+        }
+        
+
+
+    </script>
+
+</body>
+</html>
